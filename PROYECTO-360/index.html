@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visor 360 - Gestión de Áreas</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css"/>
+    <script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+
+    <style>
+        :root { --primary: #2563eb; --dark: #1e293b; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f8fafc; color: var(--dark); }
+        
+        /* Contenedor principal móvil-primero */
+        .container { padding: 15px; max-width: 800px; margin: auto; }
+        
+        .header { text-align: center; padding: 20px 0; }
+        
+        /* Buscador y Botones */
+        .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
+        input#buscador { flex-grow: 1; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; }
+        
+        .btn-qr { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; }
+
+        /* Visor 360 */
+        #panorama { width: 100%; height: 300px; border-radius: 12px; background: #eee; margin-top: 15px; display: none; }
+        
+        /* Tarjeta de Información */
+        .info-card { 
+            background: white; border-radius: 12px; padding: 20px; 
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: none; margin-top: 15px;
+        }
+        .info-card h2 { margin: 0 0 10px 0; color: var(--primary); }
+        .grid-info { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.9em; }
+        .badge { background: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+
+        /* Escáner */
+        #reader { width: 100%; border-radius: 12px; overflow: hidden; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>Localizador 360</h1>
+        <p>Busca un área o escanea el código QR</p>
+    </div>
+
+    <div class="search-box">
+        <input type="text" id="buscador" placeholder="Nombre o Código de área...">
+        <button class="btn-qr" onclick="toggleScanner()">📷</button>
+    </div>
+
+    <div id="reader"></div>
+
+    <div id="infoCard" class="info-card">
+        <h2 id="view-nombre">Nombre del Área</h2>
+        <div class="grid-info">
+            <div><strong>Código:</strong> <span id="view-codigo" class="badge">-</span></div>
+            <div><strong>Piso:</strong> <span id="view-piso" class="badge">-</span></div>
+        </div>
+        <p><strong>Descripción:</strong><br><span id="view-desc">-</span></p>
+        
+        <div id="panorama"></div>
+    </div>
+</div>
+
+<script>
+    let db = [];
+    let scannerActive = false;
+    let html5QrCode;
+
+    // 1. Cargar Base de Datos desde el CSV
+    Papa.parse("datos.csv", {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+            db = results.data;
+            console.log("Base de datos cargada:", db.length, "registros");
+        }
+    });
+
+    // 2. Lógica de búsqueda por texto
+    document.getElementById('buscador').addEventListener('input', function(e) {
+        const term = e.target.value.toLowerCase();
+        if(term.length < 2) return;
+        
+        const area = db.find(item => 
+            item.nombre.toLowerCase().includes(term) || 
+            item.codigo.toLowerCase().includes(term)
+        );
+        
+        if(area) mostrarArea(area);
+    });
+
+    // 3. Mostrar los datos y la foto 360
+    function mostrarArea(area) {
+        document.getElementById('infoCard').style.display = 'block';
+        document.getElementById('panorama').style.display = 'block';
+        
+        document.getElementById('view-nombre').innerText = area.nombre;
+        document.getElementById('view-codigo').innerText = area.codigo;
+        document.getElementById('view-piso').innerText = area.piso;
+        document.getElementById('view-desc').innerText = area.descripcion;
+
+        // Inicializar Pannellum
+        pannellum.viewer('panorama', {
+            "type": "equirectangular",
+            "panorama": area.foto_360, // Ruta de la imagen (ej: fotos/sala1.jpg)
+            "autoLoad": true,
+            "hfov": 110 // Campo de visión inicial
+        });
+    }
+
+    // 4. Lógica del Escáner QR
+    function toggleScanner() {
+        if (!scannerActive) {
+            html5QrCode = new Html5Qrcode("reader");
+            html5QrCode.start(
+                { facingMode: "environment" }, 
+                { fps: 10, qrbox: 250 },
+                (decodedText) => {
+                    const area = db.find(item => item.codigo === decodedText);
+                    if(area) {
+                        mostrarArea(area);
+                        stopScanner();
+                    } else {
+                        alert("Código QR no reconocido en la base de datos");
+                    }
+                }
+            ).catch(err => alert("Error al abrir cámara: " + err));
+            scannerActive = true;
+        } else {
+            stopScanner();
+        }
+    }
+
+    function stopScanner() {
+        if(html5QrCode) {
+            html5QrCode.stop().then(() => {
+                document.getElementById('reader').innerHTML = "";
+                scannerActive = false;
+            });
+        }
+    }
+</script>
+
+</body>
+</html>

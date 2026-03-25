@@ -1,0 +1,4 @@
+nombre,codigo,piso,descripcion,qr_link,foto_360
+Laboratorio A,LAB-01,2,Área de pruebas químicas,link_al_qr.png,fotos/foto1.jpg
+Oficina TI,TI-05,5,Soporte técnico central,link_al_qr.png,fotos/foto2.jpg
+Urgencias,OBS-07,1,Observacion urgencias pediatricos,link_al_qr.png,fotos/foto3.jpg
